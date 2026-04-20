@@ -1,0 +1,10 @@
+package vbm.medrelais.model.enums;
+
+public enum EtatEtudeEnum {
+    DEVIS_VALIDE,
+    DATE_INTERVENTION_PROPOSEE,
+    DATE_INTERVENTION_FIXEE,
+    INTERVENTION_EFFECTUEE,
+    RAPPORT_TERMINE,
+    PAIEMENT_EFFECTUE
+}
