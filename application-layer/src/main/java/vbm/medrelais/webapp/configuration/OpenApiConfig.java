@@ -15,15 +15,15 @@ public class OpenApiConfig {
     private static final String SECURITY_SCHEME_NAME = "bearerAuth";
 
     @Bean
-    public OpenAPI geoconnectOpenAPI() {
+    public OpenAPI medrelaisOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("GeoConnect API")
-                        .description("Documentation technique de l'API GeoConnect")
+                        .title("MedRelais API")
+                        .description("Documentation technique de l'API MedRelais — mise en relation de praticiens pour des remplacements")
                         .version("1.0.0")
                         .contact(new Contact()
-                                .name("GeoConnect Team")
-                                .email("contact@geoconnect.fr")))
+                                .name("MedRelais Team")
+                                .email("contact@medrelais.fr")))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()
                         .addSecuritySchemes(SECURITY_SCHEME_NAME,
@@ -35,4 +35,3 @@ public class OpenApiConfig {
                                         .description("Entrez votre token JWT ici. Exemple : eyJhbGci...")));
     }
 }
-

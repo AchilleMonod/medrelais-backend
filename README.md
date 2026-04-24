@@ -1,6 +1,6 @@
-# GeoConnect — Backend
+# MedRelais — Backend
 
-API REST Spring Boot pour la plateforme GeoConnect, permettant la mise en relation entre **clients** et **bureaux d'études** pour des missions géotechniques.
+API REST Spring Boot pour la plateforme **MedRelais**, permettant la mise en relation de praticiens médicaux et paramédicaux pour des remplacements.
 
 ---
 
@@ -8,36 +8,37 @@ API REST Spring Boot pour la plateforme GeoConnect, permettant la mise en relati
 
 1. [Prérequis](#-prérequis)
 2. [Architecture hexagonale](#-architecture-hexagonale)
-3. [Configuration de la base de données](#-configuration-de-la-base-de-données)
-4. [Lancement avec IntelliJ IDEA](#-lancement-avec-intellij-idea)
-5. [Profils Spring](#-profils-spring)
-6. [Sécurité JWT](#-sécurité-jwt)
-7. [Documentation Swagger](#-documentation-swagger)
-8. [Tests](#-tests)
-9. [Build Maven](#-build-maven)
+3. [Modèle de données](#-modèle-de-données)
+4. [Configuration de la base de données](#-configuration-de-la-base-de-données)
+5. [Lancement avec IntelliJ IDEA](#-lancement-avec-intellij-idea)
+6. [Profils Spring](#-profils-spring)
+7. [Sécurité JWT](#-sécurité-jwt)
+8. [Documentation Swagger](#-documentation-swagger)
+9. [Tests](#-tests)
+10. [Build Maven](#-build-maven)
 
 ---
 
 ## ✅ Prérequis
 
-| Outil | Version minimale |
-|---|---|
-| Java (JDK) | 21 |
-| Maven | 3.9+ |
-| PostgreSQL | 14+ (profil `dev`) |
-| IntelliJ IDEA | 2023+ (Community ou Ultimate) |
+| Outil            | Version minimale |
+|------------------|-----------------|
+| Java (JDK)       | 21              |
+| Maven            | 3.9+            |
+| PostgreSQL       | 14+             |
+| IntelliJ IDEA    | 2023+           |
 
 ---
 
 ## 🏛 Architecture hexagonale
 
-Le projet est découpé en **3 modules Maven** qui respectent les principes de l'architecture hexagonale (Ports & Adapters) :
+Le projet est découpé en **3 modules Maven** respectant les principes de l'architecture hexagonale (Ports & Adapters) :
 
 ```
-geoconnect-backend/
+medrelais-backend/
 ├── domain-layer/           → Cœur métier (pur Java, aucune dépendance framework)
-├── infrastructure-layer/   → Adaptateurs techniques (BDD, Sécurité, JWT)
-└── application-layer/      → Point d'entrée (Controllers REST, Swagger, Spring Boot)
+├── infrastructure-layer/   → Adaptateurs techniques (JPA, Sécurité, JWT)
+└── application-layer/      → Point d'entrée (Controllers REST, DTOs, Swagger, Spring Boot)
 ```
 
 ### Détail des couches
@@ -45,267 +46,211 @@ geoconnect-backend/
 #### 🟢 `domain-layer` — Domaine métier
 > Contient uniquement la logique métier. **Aucune dépendance** vers Spring, JPA ou tout autre framework.
 
-| Package | Rôle |
-|---|---|
-| `model/` | Objets métier (Business Objects) : `BureauEtudeBO`, `ClientBO`, `EtudeBO`... |
-| `model/enums/` | Énumérations métier : `RoleEnum`, `EtatEtudeEnum`, `StatutAppelEnum` |
-| `service/` | Interfaces des services métier |
-| `service/impl/` | Implémentations des services |
-| `port/` | **Interfaces** des ports sortants (ex: `UtilisateurRepository`, `PropositionDevisRepository`) |
-| `exception/` | Exceptions métier |
+| Package       | Rôle                                                                 |
+|---------------|----------------------------------------------------------------------|
+| `model/`      | Objets métier (BO) : `UtilisateurBO`, `PraticienBO`, `CreneauBO`... |
+| `model/enums` | Enums du domaine : `Role`, `StatutCreneau`, `StatutAttribution`...  |
+| `port/`       | Interfaces repository (contrats vers l'infrastructure)              |
+| `service/`    | Interfaces des services métier                                      |
+| `service/impl/` | Implémentations des services avec toute la logique métier         |
+| `exception/`  | Exceptions métier (`PraticienNotFoundException`, etc.)              |
 
 #### 🔵 `infrastructure-layer` — Adaptateurs techniques
-> Implémente les ports définis dans le domaine. Contient tout ce qui est lié à des technologies spécifiques.
+> Implémente les ports définis dans le domaine. Contient tout ce qui est technique.
 
-| Package | Rôle |
-|---|---|
-| `database/entities/` | Entités JPA (mapping BDD) |
-| `database/dao/` | Repositories Spring Data JPA |
-| `database/adapter/` | Implémentations des ports du domaine |
-| `database/mapper/` | Mappers MapStruct Entity ↔ BO |
-| `database/configuration/` | Configuration JPA / Auditing |
-| `security/` | Filtre JWT, service JWT, `UserDetails` |
-| `security/configuration/` | Configuration Spring Security |
+| Package                    | Rôle                                              |
+|----------------------------|---------------------------------------------------|
+| `database/entities/`       | Entités JPA (SINGLE_TABLE inheritance)            |
+| `database/entities/enums/` | Enums JPA miroir des enums domaine                |
+| `database/dao/`            | Interfaces Spring Data JPA (`JpaRepository`)      |
+| `database/adapter/`        | Implémentations des ports (DAO + mapper)          |
+| `database/mapper/`         | Mappers MapStruct Entity ↔ BO                     |
+| `security/`                | Filtre JWT, `JwtService`, `UserDetailsServiceImpl`|
 
-#### 🟡 `application-layer` — Couche applicative
-> Point d'entrée de l'application. Orchestre les appels vers le domaine.
+#### 🟡 `application-layer` — Point d'entrée
+> Orchestre l'exposition REST et la configuration Spring Boot.
 
-| Package | Rôle |
-|---|---|
-| `resource/` | Controllers REST (auth, bureauEtude, client, etude...) |
-| `model/` | DTOs d'entrée/sortie des endpoints |
-| `mapper/` | Mappers MapStruct DTO ↔ BO |
-| `webapp/exception/` | Gestionnaire global d'exceptions (`@ControllerAdvice`) |
-| `webapp/configuration/` | Configuration OpenAPI/Swagger |
+| Package              | Rôle                                              |
+|----------------------|---------------------------------------------------|
+| `webapp/controller/` | Controllers REST (`@RestController`)              |
+| `webapp/model/request/`  | DTOs entrants avec validations `@Valid`       |
+| `webapp/model/response/` | DTOs sortants                                 |
+| `webapp/mapper/`     | Mappers MapStruct DTO ↔ BO                        |
+| `webapp/exception/`  | `ApiExceptionHandlerAdvice`, `ApiError`           |
+| `webapp/configuration/` | `OpenApiConfig` (Swagger/SpringDoc)            |
 
-### Flux d'une requête
+---
+
+## 🗄 Modèle de données
+
+Le schéma repose sur **5 tables** dans le schéma PostgreSQL `medrelais` :
 
 ```
-HTTP Request
-    ↓
-[application-layer]  Controller REST
-    ↓  (DTO → BO via MapStruct)
-[domain-layer]       Service métier
-    ↓  (appel via interface Port)
-[infrastructure-layer]  Adapter → Repository JPA → PostgreSQL
+utilisateur        (SINGLE_TABLE — PRATICIEN, ADMIN)
+    │
+    ├──< regle_recurrence   (règles de génération de créneaux récurrents)
+    │        │
+    │        └──< creneau   (créneaux ponctuels ou issus d'une règle)
+    │                │
+    └──< attribution └──< attribution  (demandes de remplacement)
+```
+
+| Table               | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `utilisateur`       | Héritage SINGLE_TABLE — champs spécifiques `PRATICIEN` nullable pour `ADMIN` |
+| `regle_recurrence`  | Règle de génération récurrente (hebdo, mensuel...) avec CSV pour les jours |
+| `creneau`           | Slot de remplacement, statut géré automatiquement        |
+| `attribution`       | Candidature d'un remplaçant sur un créneau               |
+
+### Cycle de vie du statut créneau
+
+```
+DISPONIBLE ──→ EN_ATTENTE ──→ ATTRIBUE
+     ↑               │
+     └───────────────┘ (si toutes les demandes sont refusées/annulées)
+     └──────────────────────────────────── ANNULE
+```
+
+### Cycle de vie du statut attribution
+
+```
+EN_ATTENTE ──→ ACCEPTEE
+     │     └──→ REFUSEE
+     └─────────→ ANNULEE
 ```
 
 ---
 
-## 🗄 Configuration de la base de données
+## 🐘 Configuration de la base de données
 
-### Initialisation PostgreSQL
-
-Exécuter les scripts SQL dans l'ordre depuis un superutilisateur PostgreSQL (`postgres`) :
+### Initialisation (à exécuter une seule fois en tant que superuser PostgreSQL)
 
 ```bash
 # 1. Créer l'utilisateur et la base
 psql -U postgres -f application-layer/src/main/resources/bdd/01_init.sql
 
-# 2. Créer le schéma et les tables (connecté sur geoconnect_db)
-psql -U geoconnect_user -d geoconnect_db -f application-layer/src/main/resources/bdd/02_create_bdd.sql
+# 2. Se connecter à la base medrelais_db et créer le schéma
+psql -U medrelais_user -d medrelais_db -f application-layer/src/main/resources/bdd/02_create_bdd.sql
 ```
 
-### Paramètres de connexion (profil `dev`)
+### Configuration `application-dev.yaml`
 
-| Paramètre | Valeur |
-|---|---|
-| URL | `jdbc:postgresql://localhost:5432/geoconnect_db` |
-| Schéma | `geoconnect` |
-| Utilisateur | `geoconnect_user` |
-| Mot de passe | `geoconnect_pass` |
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/medrelais_db
+    username: medrelais_user
+    password: medrelais_pass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: medrelais
 
-> ⚠️ Ces valeurs sont celles par défaut pour le développement local. Ne jamais les utiliser en production.
+jwt:
+  secret: <votre-clé-base64-256bits>
+  expiration: 86400000   # 24h en ms
+```
+
+> ⚠️ Ne jamais commiter de mot de passe ou clé JWT en clair. Utilisez des variables d'environnement en production.
 
 ---
 
 ## 🚀 Lancement avec IntelliJ IDEA
 
-### 1. Importer le projet
-
-1. **File** → **Open** → sélectionner le dossier `geoconnect-backend`
-2. IntelliJ détecte automatiquement le projet Maven multi-module
-3. Attendre le chargement des dépendances (barre de progression en bas)
-
-### 2. Marquer les sources générées
-
-Les classes générées par **MapStruct** ne sont pas automatiquement reconnues par IntelliJ :
-
-1. Clic droit sur `application-layer/target/generated-sources/annotations`
-2. **Mark Directory as** → **Generated Sources Root**
-3. Répéter pour `infrastructure-layer/target/generated-sources/annotations`
-
-### 3. Configurer la Run Configuration
-
-1. **Run** → **Edit Configurations** → **+** → **Spring Boot**
-2. Remplir les champs :
-
-| Champ | Valeur |
-|---|---|
-| **Name** | `GeoConnect - Dev` |
-| **Module** | `application-layer` |
-| **Main class** | `vbm.medrelais.Application` |
-| **Active profiles** | `dev` |
-
-3. Cliquer sur **OK** puis **▶ Run**
-
-### 4. Vérifier le démarrage
-
-L'application démarre sur le port **8080** par défaut.  
-Tester avec : `GET http://localhost:8080/actuator/health`
+1. **Ouvrir le projet** : `File → Open` → sélectionner le dossier `medrelais-backend`
+2. **Importer les dépendances Maven** : clic droit sur `pom.xml` → `Maven → Reload Project`
+3. **Configurer le profil** : dans la configuration de lancement, ajouter `-Dspring.profiles.active=dev`
+4. **Lancer** : exécuter `Application.java` dans `application-layer`
 
 ---
 
-## ⚙️ Profils Spring
+## 🔀 Profils Spring
 
-| Profil | Datasource | Usage |
-|---|---|---|
-| `dev` | PostgreSQL local (`localhost:5432`) | Développement local |
-| `test` | H2 en mémoire | Tests automatisés (CI/CD) |
-
-### Fichiers de configuration
-
-```
-application-layer/src/main/resources/
-├── application.yaml          → Config commune (active le profil dev par défaut)
-├── application-dev.yaml      → Config PostgreSQL
-└── application-test.yaml     → Config H2 (pour les tests)
-```
-
-> Pour lancer en mode `dev`, passer `-Dspring.profiles.active=dev` en argument JVM ou configurer le profil dans IntelliJ (voir section précédente).
+| Profil | Usage                  | BDD              |
+|--------|------------------------|------------------|
+| `dev`  | Développement local    | PostgreSQL local |
+| `test` | Tests unitaires/intégr.| H2 en mémoire    |
 
 ---
 
 ## 🔐 Sécurité JWT
 
-L'API est sécurisée par **JSON Web Token (JWT)**. Tous les endpoints (sauf `/api/auth/**` et Swagger) nécessitent un token valide.
+L'authentification repose sur des **tokens JWT Bearer** (stateless, pas de session).
 
-### Obtenir un token
+### Flux d'authentification
 
-#### 1. Créer un compte
-```http
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
+```
+POST /api/auth/register   → Inscription praticien → retourne { token }
+POST /api/auth/login      → Connexion             → retourne { token }
 
-{
-  "email": "user@example.com",
-  "password": "motdepasse"
-}
+Tous les autres endpoints → Header: Authorization: Bearer <token>
 ```
 
-#### 2. Se connecter
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
+### Rôles
 
-{
-  "email": "user@example.com",
-  "password": "motdepasse"
-}
-```
-
-**Réponse :**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2..."
-}
-```
-
-#### 3. Utiliser le token
-Ajouter le header suivant à chaque requête protégée :
-```
-Authorization: Bearer <votre_token>
-```
-
-### Configuration JWT (`application.yaml`)
-
-| Propriété | Valeur par défaut |
-|---|---|
-| `jwt.secret` | Clé HMAC-SHA256 (256 bits) |
-| `jwt.expiration` | `86400000` ms = **24 heures** |
+| Rôle       | Accès                                       |
+|------------|---------------------------------------------|
+| `PRATICIEN`| Lecture/écriture sur ses propres ressources |
+| `ADMIN`    | Accès total, dont suppression et création   |
 
 ---
 
 ## 📖 Documentation Swagger
 
-Une interface Swagger UI est disponible automatiquement après démarrage.
+Une fois l'application démarrée, accéder à :
 
-### Accès
+```
+http://localhost:8080/swagger-ui.html
+```
 
-| URL | Description |
-|---|---|
-| **http://localhost:8080/swagger-ui/index.html** | 🖥️ Interface graphique Swagger UI |
-| `http://localhost:8080/v3/api-docs` | 📄 Spec OpenAPI au format JSON |
-| `http://localhost:8080/v3/api-docs.yaml` | 📄 Spec OpenAPI au format YAML |
-
-### Authentification dans Swagger UI
-
-Pour tester les endpoints protégés directement depuis l'interface :
-
-1. Récupérer un token via `POST /api/auth/login`
-2. Cliquer sur le bouton **🔒 Authorize** (en haut à droite)
-3. Saisir : `Bearer <votre_token>`
-4. Cliquer sur **Authorize** puis **Close**
-
-Tous les endpoints afficheront désormais le cadenas **🔒 fermé**.
+L'interface permet de tester tous les endpoints directement depuis le navigateur après avoir renseigné le token JWT via le bouton **Authorize 🔒**.
 
 ---
 
 ## 🧪 Tests
 
-### Lancer les tests
-
 ```bash
-# Tous les tests
+# Lancer tous les tests
 mvn test
 
-# Tests d'un module spécifique
-mvn test -pl application-layer
+# Lancer les tests d'un module spécifique
+mvn test -pl domain-layer
 mvn test -pl infrastructure-layer
 ```
 
-### Profil utilisé pour les tests
-
-Les tests utilisent automatiquement le profil `test` (H2 en mémoire) grâce au fichier `src/test/resources/application.yaml` présent dans `application-layer`. Aucune instance PostgreSQL n'est nécessaire.
-
-### Couverture de code (JaCoCo)
-
-Un rapport de couverture est généré après chaque build :
-
-```bash
-mvn verify
-```
-
-Rapport disponible dans :
-```
-application-layer/target/site/jacoco/index.html
-infrastructure-layer/target/site/jacoco/index.html
-```
+Les tests utilisent le profil `test` avec une base H2 en mémoire.
 
 ---
 
 ## 🔨 Build Maven
 
 ```bash
-# Nettoyer et construire tous les modules
-mvn clean install
+# Compiler et packager
+mvn clean package
 
-# Construire sans les tests
-mvn clean install -DskipTests
+# Ignorer les tests
+mvn clean package -DskipTests
 
-# Construire un module spécifique
-mvn clean install -pl domain-layer
-mvn clean install -pl infrastructure-layer -am
-mvn clean install -pl application-layer -am
+# Lancer le jar généré
+java -jar application-layer/target/application-layer-1.0-SNAPSHOT.jar --spring.profiles.active=dev
 ```
 
-### Ordre de build des modules
+---
 
-```
-1. domain-layer          (aucune dépendance interne)
-2. infrastructure-layer  (dépend de domain-layer)
-3. application-layer     (dépend de domain-layer + infrastructure-layer)
-```
+## 📦 Stack technique
 
-> L'option `-am` (also-make) construit automatiquement les modules dont dépend le module ciblé.
-
+| Technologie      | Version  | Usage                          |
+|------------------|----------|--------------------------------|
+| Java             | 21       | Langage                        |
+| Spring Boot      | 3.4.3    | Framework applicatif           |
+| Spring Security  | 6.x      | Authentification JWT           |
+| Spring Data JPA  | 3.x      | Persistance                    |
+| PostgreSQL       | 14+      | Base de données                |
+| MapStruct        | 1.6.3    | Mapping objet (Entity↔BO↔DTO)  |
+| Lombok           | 1.18.42  | Réduction du boilerplate       |
+| JJWT             | 0.12.6   | Génération/validation JWT      |
+| SpringDoc OpenAPI| 2.7.0    | Documentation Swagger          |
+| H2               | -        | BDD en mémoire (tests)         |
+| JaCoCo           | 0.8.12   | Couverture de tests            |

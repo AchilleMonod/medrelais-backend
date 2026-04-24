@@ -1,9 +1,9 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/geoconnect_db
+    url: jdbc:postgresql://localhost:5432/medrelais_db
     driver-class-name: org.postgresql.Driver
-    username: geoconnect_user
-    password: geoconnect_pass
+    username: medrelais_user
+    password: medrelais_pass
   jpa:
     hibernate:
       ddl-auto: validate
@@ -11,4 +11,4 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        default_schema: geoconnect
+        default_schema: medrelais

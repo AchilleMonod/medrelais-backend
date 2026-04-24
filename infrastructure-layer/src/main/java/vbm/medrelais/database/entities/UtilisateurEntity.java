@@ -1,38 +1,56 @@
 package vbm.medrelais.database.entities;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.CreationTimestamp;
-import vbm.medrelais.model.enums.RoleEnum;
+import org.hibernate.annotations.UpdateTimestamp;
+import vbm.medrelais.database.entities.enums.Role;
 
 import java.time.LocalDateTime;
 
 @Data
-@Builder
-@NoArgsConstructor
+@SuperBuilder
 @AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Table(name = "utilisateur")
-public class UtilisateurEntity {
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "role", discriminatorType = DiscriminatorType.STRING)
+public abstract class UtilisateurEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true, nullable = false)
+    @Email(message = "L'email doit être valide")
     private String email;
 
     @Column(nullable = false)
-    private String password;
+    @Size(min = 8, message = "Le mot de passe doit faire au moins 8 caractères")
+    private String motDePasse;
+
+    @Column(nullable = false)
+    private String nom;
+
+    @Column(nullable = false)
+    private String prenom;
+
+    @Column
+    private String telephone;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private RoleEnum role;
+    @Column(name = "role", insertable = false, updatable = false)
+    private Role role;
 
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }
